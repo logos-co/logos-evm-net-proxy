@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutorial Execution Report</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --pass: #2ea043; --fail: #f85149; --info: #d29922;
+    --code-bg: #0b0f14;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10; background: var(--panel);
+    border-bottom: 1px solid var(--border); padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .pill { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.pass { background: rgba(46,160,67,.15); color: var(--pass); }
+  .pill.fail { background: rgba(248,81,73,.15); color: var(--fail); }
+  .pill.skip { background: rgba(210,153,34,.15); color: var(--info); }
+  select { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  main { max-width: 1600px; margin: 0 auto; padding: 16px; }
+  .tutorial-title { font-size: 20px; font-weight: 700; margin: 24px 0 8px; color: #fff; }
+  .row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; overflow: hidden;
+  }
+  .row.preamble, .row.section { grid-template-columns: 1fr; }
+  .col { padding: 14px 18px; min-width: 0; }
+  .col.left { border-right: 1px solid var(--border); }
+  .row.preamble .col.left, .row.section .col.left { border-right: none; }
+  .col.right { background: var(--panel); }
+  /* A row containing any failed step is tinted red end-to-end so it's
+     impossible to miss when scanning the report. */
+  .row.has-fail { border-color: var(--fail); box-shadow: 0 0 0 1px var(--fail); }
+  .row.has-fail .col.left { background: rgba(248,81,73,.07); border-right-color: var(--fail); }
+  .row.has-fail .col.right { background: rgba(248,81,73,.12); }
+  .col-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
+  .md :first-child { margin-top: 0; }
+  .md h1 { font-size: 22px; } .md h2 { font-size: 18px; } .md h3 { font-size: 15px; }
+  .md pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; overflow-x: auto; }
+  .md code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .md :not(pre) > code { background: rgba(110,118,129,.2); padding: .15em .4em; border-radius: 4px; }
+  .md table { border-collapse: collapse; margin: 8px 0; }
+  .md th, .md td { border: 1px solid var(--border); padding: 5px 10px; }
+  .md blockquote { border-left: 3px solid var(--border); margin: 8px 0; padding: 2px 12px; color: var(--muted); }
+  .exec { margin-bottom: 14px; }
+  .exec:last-child { margin-bottom: 0; }
+  .exec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 4px; }
+  .badge.pass { background: rgba(46,160,67,.15); color: var(--pass); }
+  .badge.fail { background: rgba(248,81,73,.15); color: var(--fail); }
+  .badge.info { background: rgba(210,153,34,.15); color: var(--info); }
+  .kind { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .note { color: var(--muted); font-size: 12.5px; margin-bottom: 6px; }
+  pre.cmd { background: var(--code-bg); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 12px; margin: 0 0 6px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+  pre.output { background: #010409; border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; max-height: 360px; overflow-y: auto; color: #b9c1ca; }
+  pre.cmd, pre.output { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.45; }
+  .empty { color: var(--muted); font-style: italic; font-size: 12.5px; }
+  details summary { cursor: pointer; color: var(--accent); font-size: 12px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tutorial Execution Report</h1>
+  <span id="summary"></span>
+  <label style="margin-left:auto; font-size:12px; color:var(--muted)">Tutorial
+    <select id="picker"></select>
+  </label>
+</header>
+<main id="main"></main>
+
+<script id="report-data" type="application/json">{"generated_platform": "Darwin", "summary": {"passed": 0, "failed": 1, "skipped": 0}, "tutorials": [{"meta": {"name": "Proving the Fail-Closed Invariant of logos-net-proxy", "platform": "Darwin (ext=dylib)", "release": "(none)"}, "rows": [{"md": "# Proving the Fail-Closed Invariant of logos-net-proxy\n\n`logos-net-proxy` is the wallet's **single outbound chokepoint**: the only\nplace an HTTP client is constructed. It is **fail-closed** \u2014 `build_client`\nreturns an error when a proxy is *required* but unset or unusable, so no code\npath can ever yield a cleartext client behind the user's back. It is built on\n`reqwest` with `rustls-tls` (pure-Rust at link) and `socks` for\n`socks5h://` (remote DNS through the proxy \u2014 what Tor needs).\n\nThe crate is consumed by inlining (`eth_rpc_module` / `token_list_module` carry\nit as `src/proxy.rs`), and its end-to-end refusal is already exercised by those\nmodules' doc-tests. This doc-test pins down the **invariant at the source**: it\nruns the crate's fail-closed test suite in a reproducible Nix toolchain and\nshows every case passing.\n\n**What you'll build:** The `logos-net-proxy` crate's fail-closed test suite, run in a reproducible Nix dev shell.\n\n**What you'll learn:**\n\n- Why a single fail-closed client constructor is the wallet's privacy chokepoint\n- Which conditions force a refusal (proxy required + unset/blank/garbage/unsupported scheme)\n- Which conditions are allowed (no proxy required, or a valid socks5h:// proxy)\n\n## Prerequisites\n\n- **Nix** with flakes enabled. Install from [nixos.org](https://nixos.org/download.html), then enable flakes:\n\n```bash\nmkdir -p ~/.config/nix\necho 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf\n```\n\n- **A Linux or macOS machine** with `python3` available (used to locate the pinned crate source).", "execs": []}, {"md": "## Step 1: The invariant\n\n`build_client(cfg)` is the only constructor of a `reqwest::Client` in the\nwallet. It refuses \u2014 returns `Err` \u2014 whenever a proxy is required but cannot\nbe honored, and otherwise returns a usable client:\n\n| Case | `proxy_required` | `proxy` | Result |\n|---|---|---|---|\n| `fail_closed_when_required_and_unset`  | `true`  | `None`            | **refuse** |\n| `fail_closed_when_required_and_blank`  | `true`  | `\"\"`              | **refuse** |\n| `rejects_unsupported_scheme`           | `true`  | `https://\u2026`       | **refuse** |\n| `rejects_garbage_proxy`                | `true`  | not a URL         | **refuse** |\n| `ok_when_not_required_and_unset`       | `false` | `None`            | allow |\n| `ok_with_socks5h_proxy`                | `true`  | `socks5h://\u2026`     | allow |", "execs": []}, {"md": "## Step 2: Run the fail-closed suite\n\nWe fetch the crate's pinned source via its flake and run `cargo test` inside\nthe flake's dev shell, so the toolchain is reproducible and the run is\ndeterministic (no reliance on a build cache to print results).", "execs": []}, {"md": "### 2.1 Run cargo test in the pinned dev shell\n\n```bash\nnix develop github:logos-co/logos-evm-net-proxy --command cargo test\n```\n\nAll six cases pass: every \"proxy required but unhonorable\" configuration\nrefuses, and only a missing-and-not-required proxy or a valid\n`socks5h://` proxy yields a client. That is the guarantee every wallet\nmodule inherits by building its outbound client through this one crate.", "execs": [{"kind": "run", "cmd": "src=$(nix flake metadata github:logos-co/logos-evm-net-proxy/4af971b167b73e219ed697603991c21a74083240 --no-write-lock-file --json | python3 -c \"import json,sys;print(json.load(sys.stdin)['path'])\")\nrm -rf crate && cp -RL \"$src\" crate && chmod -R u+w crate\ncd crate\nnix develop github:logos-co/logos-evm-net-proxy/4af971b167b73e219ed697603991c21a74083240 --no-write-lock-file --command cargo test --color never\n", "status": "fail", "exit_code": 101, "output": "unpacking 'github:logos-co/logos-evm-net-proxy/4af971b167b73e219ed697603991c21a74083240' into the Git cache...\nunpacking 'github:NixOS/nixpkgs/567a49d1913ce81ac6e9582e3553dd90a955875f' into the Git cache...\nwarning: not writing modified lock file of flake 'github:logos-co/logos-evm-net-proxy/4af971b167b73e219ed697603991c21a74083240':\n\u2022 Added input 'nixpkgs':\n    'github:NixOS/nixpkgs/567a49d' (2026-06-16)\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    import json,sys;print(json.load(sys.stdin)['path'])\n                          ~~~~~~~~~~~~~~~~~~~~^^^^^^^^\nKeyError: 'path'\ncp: : No such file or directory\n/nix/store/55976waa157aqb1ncbwm6b8sa64b6m3h-bash-5.3p9/bin/sh: line 3: cd: crate: No such file or directory\nwarning: not writing modified lock file of flake 'github:logos-co/logos-evm-net-proxy/4af971b167b73e219ed697603991c21a74083240':\n\u2022 Added input 'nixpkgs':\n    'github:NixOS/nixpkgs/567a49d' (2026-06-16)\ncopying path '/nix/store/ssrj0w8v9xzfm8ly8w32dz3mnj6psa2m-expand-response-params' from 'https://cache.nixos.org'...\ncopying path '/nix/store/af7n5cc4bzd9c6mwsgh7sfmcbasjr5kd-gawk-5.4.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/v1lxnb2804dgaf9sf60y6najgjs3wjsi-gnused-4.9' from 'https://cache.nixos.org'...\ncopying path '/nix/store/8wwiw8pwyhrkzyq28hqzxfl4z84lks81-gnumake-4.4.1' from 'https://cache.nixos.org'...\ncopying path '/nix/store/ngbqdfvv2l12jysz56iy45g1gld2n126-locale-118' from 'https://cache.nixos.org'...\ncopying path '/nix/store/db7jzr61wj1xnflacfcnfhzk3ci1gwrx-brotli-1.2.0-lib' from 'https://cache.nixos.org'...\ncopying path '/nix/store/mm86qwzdnjlj2lkghh7x7jnpmn3wwnxq-nghttp2-1.69.0-lib' from 'https://cache.nixos.org'...\ncopying path '/nix/store/ym2h5axmyxqkwmrrrz570gmkbmdlwvbv-zstd-1.5.7' from 'https://cache.nixos.org'...\ncopying path '/nix/store/3z3ksp4dkl7klq5dyz691vi3ykc7s438-nghttp3-1.15.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/a6r9ryv9pqcvwv8ffmzi4ichd5br0vl6-bzip2-1.0.8-bin' from 'https://cache.nixos.org'...\ncopying path '/nix/store/37rdk8zsdbqcp73l3nrmwilwb2ixkacv-diffutils-3.12' from 'https://cache.nixos.org'...\ncopying path '/nix/store/dax63li7wwcbqxxkkgzc4g2rx7d4w86x-file-5.47' from 'https://cache.nixos.org'...\ncopying path '/nix/store/3wz2j41nnr1badij6fcnip5vgrfpdd82-findutils-4.10.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/b7rf7jfkadwjajzfb5430l5k60gwfqa8-gzip-1.14' from 'https://cache.nixos.org'...\ncopying path '/nix/store/yq024wygl044gnrl60hgdjarssr2s05n-libiconv-1.19' from 'https://cache.nixos.org'...\ncopying path '/nix/store/k8p39wbkd9mx69np1j9lg38q2nii7viq-pkg-config-0.29.2' from 'https://cache.nixos.org'...\ncopying path '/nix/store/jmww9gmmd1h1wjhlw4adcfnb2xkbab1w-bash-interactive-5.3p9' from 'https://cache.nixos.org'...\ncopying path '/nix/store/clinbqq0dm364gzdglc78q7010lwmgzl-ed-1.22.5' from 'https://cache.nixos.org'...\ncopying path '/nix/store/i5aw4v15lklq5r5w5clvcy8dxc2igjck-gettext-1.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/smy9r0qsipvnyidnpzfa12jkdrb92iys-gnu-config-2024-01-01' from 'https://cache.nixos.org'...\ncopying path '/nix/store/ahv7ryg45y6n6yx7l0602684gx2w110m-krb5-1.22.1-lib' from 'https://cache.nixos.org'...\ncopying path '/nix/store/zkn7s55w769vg1zj0x1j9xa8af16cfi9-libssh2-1.11.1' from 'https://cache.nixos.org'...\ncopying path '/nix/store/cazd7ilkx7m793lp6x4jbwb667khfr03-ngtcp2-1.22.1' from 'https://cache.nixos.org'...\ncopying path '/nix/store/fk38lw91gqqr7vz1yjnqhasyis1c44hm-publicsuffix-list-0-unstable-2026-03-26' from 'https://cache.nixos.org'...\ncopying path '/nix/store/h7484di7imn15ihxmhzqrzbaszcaxyhw-xz-5.8.3-bin' from 'https://cache.nixos.org'...\ncopying path '/nix/store/zn3jzk0zwhml7pgx8slyiwmk5zv0ylmh-patch-2.8' from 'https://cache.nixos.org'...\ncopying path '/nix/store/ah2c1xy8qqg2209chn65yi8fd62zk3hi-rustc-1.95.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/lzrwr375jqhhbca116kja96xf1md83l8-pkg-config-wrapper-0.29.2' from 'https://cache.nixos.org'...\ncopying path '/nix/store/araamnqpqfa6zp3lqsxvz3lwa6cmn2wl-update-autotools-gnu-config-scripts-hook' from 'https://cache.nixos.org'...\ncopying path '/nix/store/5cfjgwf285nif079v2aisf7k642g98kd-libunistring-1.4.2' from 'https://cache.nixos.org'...\ncopying path '/nix/store/qzsfr7xjxisnglc5iwgmq3a8q8zy95xm-libidn2-2.3.8' from 'https://cache.nixos.org'...\ncopying path '/nix/store/3aikbnf5fq99gvw1wb242wrjnbj7fcr9-gnutar-1.35' from 'https://cache.nixos.org'...\ncopying path '/nix/store/0wk4mrmpas5dhpqz06f4gx4jfys4aib6-libpsl-0.21.5' from 'https://cache.nixos.org'...\ncopying path '/nix/store/5ksfjgx970dszhbjn6kcbcf07yn52s1i-curl-8.20.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/r8w6js35zyxawi1qfzn0bm3x4b2sfc9n-rustc-bootstrap-1.95.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/h7wdlg8glf70h0y97apnwblbvrc3cwhl-stdenv-darwin' from 'https://cache.nixos.org'...\ncopying path '/nix/store/6hlv9dlxz8jhvj0sg4vh44sh8fdcm5cx-rustc-bootstrap-wrapper-1.95.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/gdillpwdkzasxkfz8j7pm94cwd275bkc-cargo-bootstrap-1.95.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/z8dhxkw9d2bclp4hj4byyxmbihr8w4an-rustc-wrapper-1.95.0' from 'https://cache.nixos.org'...\ncopying path '/nix/store/2vdxz4xwplgb5rgfhqr0jr85fd7qqgmb-cargo-1.95.0' from 'https://cache.nixos.org'...\nbuilding '/nix/store/bl3p5l5g2acm121cidl7i5w4a1d2c0i5-nix-shell-env.drv'...\nthis path will be fetched (107.5 KiB download, 107.4 KiB unpacked):\n  /nix/store/z582wbk8fi8akrn1rmdp2s2lr93nfs6d-bash-interactive-5.3p9-man\ncopying path '/nix/store/z582wbk8fi8akrn1rmdp2s2lr93nfs6d-bash-interactive-5.3p9-man' from 'https://cache.nixos.org'...\nerror: could not find `Cargo.toml` in `/private/tmp/doctest-test-umht6pfd` or any parent directory\n", "note": "exit code 101"}]}]}]}</script>
+<script>
+  const DATA = JSON.parse(document.getElementById("report-data").textContent);
+  if (window.marked) { marked.setOptions({ gfm: true, breaks: false }); }
+  const mdToHtml = (s) => window.marked ? marked.parse(s || "") : ("<pre>" + (s || "") + "</pre>");
+
+  const sum = DATA.summary;
+  document.getElementById("summary").innerHTML =
+    `<span class="pill pass">${sum.passed} passed</span> ` +
+    (sum.failed ? `<span class="pill fail">${sum.failed} failed</span> ` : "") +
+    (sum.skipped ? `<span class="pill skip">${sum.skipped} skipped</span>` : "");
+
+  const picker = document.getElementById("picker");
+  DATA.tutorials.forEach((t, i) => {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = t.meta.name; picker.appendChild(o);
+  });
+
+  function execHtml(e) {
+    const badge = `<span class="badge ${e.status}">${e.status.toUpperCase()}</span>`;
+    const kind = `<span class="kind">${e.kind}${e.exit_code !== undefined ? " · exit " + e.exit_code : ""}</span>`;
+    let h = `<div class="exec"><div class="exec-head">${badge}${kind}</div>`;
+    if (e.note) h += `<div class="note">${escapeHtml(e.note)}</div>`;
+    if (e.cmd) h += `<pre class="cmd">${escapeHtml(e.cmd)}</pre>`;
+    const out = (e.output || "").trim();
+    if (out) {
+      const long = out.split("\n").length > 12;
+      if (long) {
+        h += `<details><summary>output (${out.split("\n").length} lines)</summary><pre class="output">${escapeHtml(out)}</pre></details>`;
+      } else {
+        h += `<pre class="output">${escapeHtml(out)}</pre>`;
+      }
+    }
+    h += `</div>`;
+    return h;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  }
+
+  function render(idx) {
+    const t = DATA.tutorials[idx];
+    const main = document.getElementById("main");
+    main.innerHTML = "";
+    const h = document.createElement("div");
+    h.className = "tutorial-title";
+    h.textContent = t.meta.name + "  —  " + t.meta.platform;
+    main.appendChild(h);
+
+    t.rows.forEach(row => {
+      const isStructural = row.execs.length === 0 &&
+        (/^#\s|^##\s/.test(row.md.trim()));
+      const div = document.createElement("div");
+      const hasExec = row.execs.length > 0;
+      const hasFail = row.execs.some(e => e.status === "fail");
+      div.className = "row" + (hasExec ? "" : (isStructural ? " section" : " preamble")) +
+        (hasFail ? " has-fail" : "");
+
+      const left = document.createElement("div");
+      left.className = "col left";
+      left.innerHTML = `<div class="md">${mdToHtml(row.md)}</div>`;
+      div.appendChild(left);
+
+      if (hasExec || !isStructural) {
+        const right = document.createElement("div");
+        right.className = "col right";
+        if (hasExec) {
+          right.innerHTML = `<div class="col-label">Executed</div>` +
+            row.execs.map(execHtml).join("");
+        } else {
+          right.innerHTML = `<div class="col-label">Executed</div>` +
+            `<div class="empty">No commands run for this step.</div>`;
+        }
+        div.appendChild(right);
+      }
+      main.appendChild(div);
+    });
+  }
+
+  function slug(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+  function indexFromHash() {
+    const raw = decodeURIComponent(location.hash.replace(/^#/, ""));
+    if (!raw) return 0;
+    if (/^\d+$/.test(raw) && +raw < DATA.tutorials.length) return +raw;
+    const i = DATA.tutorials.findIndex(
+      t => slug(t.meta.name) === raw || t.meta.name === raw
+    );
+    return i >= 0 ? i : 0;
+  }
+  function show(idx) { picker.value = idx; render(idx); }
+  picker.addEventListener("change", () => {
+    location.hash = slug(DATA.tutorials[+picker.value].meta.name);
+    render(+picker.value);
+  });
+  window.addEventListener("hashchange", () => show(indexFromHash()));
+  show(indexFromHash());
+</script>
+</body>
+</html>
