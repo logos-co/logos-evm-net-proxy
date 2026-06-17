@@ -1,0 +1,76 @@
+name: "Proving the Fail-Closed Invariant of logos-net-proxy"
+output: net-proxy-runtime.md
+release: ""
+
+intro: |
+  `logos-net-proxy` is the wallet's **single outbound chokepoint**: the only
+  place an HTTP client is constructed. It is **fail-closed** — `build_client`
+  returns an error when a proxy is *required* but unset or unusable, so no code
+  path can ever yield a cleartext client behind the user's back. It is built on
+  `reqwest` with `rustls-tls` (pure-Rust at link) and `socks` for
+  `socks5h://` (remote DNS through the proxy — what Tor needs).
+
+  The crate is consumed by inlining (`eth_rpc_module` / `token_list_module` carry
+  it as `src/proxy.rs`), and its end-to-end refusal is already exercised by those
+  modules' doc-tests. This doc-test pins down the **invariant at the source**: it
+  runs the crate's fail-closed test suite in a reproducible Nix toolchain and
+  shows every case passing.
+
+what_you_build: "The `logos-net-proxy` crate's fail-closed test suite, run in a reproducible Nix dev shell."
+
+what_you_learn:
+  - Why a single fail-closed client constructor is the wallet's privacy chokepoint
+  - Which conditions force a refusal (proxy required + unset/blank/garbage/unsupported scheme)
+  - Which conditions are allowed (no proxy required, or a valid socks5h:// proxy)
+
+prerequisites:
+  - |
+    **Nix** with flakes enabled. Install from [nixos.org](https://nixos.org/download.html), then enable flakes:
+
+    ```bash
+    mkdir -p ~/.config/nix
+    echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+    ```
+  - "**A Linux or macOS machine** with `python3` available (used to locate the pinned crate source)."
+
+sections:
+  - title: "The invariant"
+    step: true
+    text: |
+      `build_client(cfg)` is the only constructor of a `reqwest::Client` in the
+      wallet. It refuses — returns `Err` — whenever a proxy is required but cannot
+      be honored, and otherwise returns a usable client:
+
+      | Case | `proxy_required` | `proxy` | Result |
+      |---|---|---|---|
+      | `fail_closed_when_required_and_unset`  | `true`  | `None`            | **refuse** |
+      | `fail_closed_when_required_and_blank`  | `true`  | `""`              | **refuse** |
+      | `rejects_unsupported_scheme`           | `true`  | `https://…`       | **refuse** |
+      | `rejects_garbage_proxy`                | `true`  | not a URL         | **refuse** |
+      | `ok_when_not_required_and_unset`       | `false` | `None`            | allow |
+      | `ok_with_socks5h_proxy`                | `true`  | `socks5h://…`     | allow |
+
+  - title: "Run the fail-closed suite"
+    step: true
+    text: |
+      We fetch the crate's pinned source via its flake and run `cargo test` inside
+      the flake's dev shell, so the toolchain is reproducible and the run is
+      deterministic (no reliance on a build cache to print results).
+    steps:
+      - title: "Run cargo test in the pinned dev shell"
+        run: |
+          src=$(nix flake metadata github:logos-co/logos-evm-net-proxy{release} --no-write-lock-file --json | python3 -c "import json,sys;print(json.load(sys.stdin)['path'])")
+          rm -rf crate && cp -RL "$src" crate && chmod -R u+w crate
+          cd crate
+          nix develop github:logos-co/logos-evm-net-proxy{release} --no-write-lock-file --command cargo test --color never
+        code_block: "nix develop github:logos-co/logos-evm-net-proxy --command cargo test"
+        expect_contains:
+          - "running 6 tests"
+          - "fail_closed_when_required_and_unset"
+          - "ok_with_socks5h_proxy"
+          - "test result: ok"
+        post_text: |
+          All six cases pass: every "proxy required but unhonorable" configuration
+          refuses, and only a missing-and-not-required proxy or a valid
+          `socks5h://` proxy yields a client. That is the guarantee every wallet
+          module inherits by building its outbound client through this one crate.
