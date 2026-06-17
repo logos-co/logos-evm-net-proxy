@@ -1,0 +1,18 @@
+[package]
+name = "logos-net-proxy"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Fail-closed proxyable HTTP client constructor for Logos wallet modules — the single chokepoint for outbound requests, Tor/SOCKS5h-ready."
+repository = "https://github.com/logos-co/logos-net-proxy"
+
+# Standalone crate — the empty table keeps cargo from adopting any workspace it
+# finds in a parent directory (the workspace has many sibling crates).
+[workspace]
+
+[dependencies]
+# rustls-tls (not native-tls) keeps the crate pure-Rust at link time; `socks`
+# enables socks5h:// (remote DNS through the proxy — what we want for Tor).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "socks", "json", "blocking"] }
+url = "2"
+thiserror = "2"
