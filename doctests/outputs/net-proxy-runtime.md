@@ -53,17 +53,21 @@ be honored, and otherwise returns a usable client:
 
 ## Step 2: Run the fail-closed suite
 
-We fetch the crate's pinned source via its flake and run `cargo test` inside
-the flake's dev shell, so the toolchain is reproducible and the run is
-deterministic (no reliance on a build cache to print results).
+The crate's Nix build runs the test suite in its `checkPhase`
+(`rustPlatform` sets `doCheck = true`), so building it *is* a reproducible,
+green run of the fail-closed invariant — and `-L` streams the `cargo test`
+output into the build log.
 
-### 2.1 Run cargo test in the pinned dev shell
+### 2.1 Build the crate — its checkPhase runs cargo test
 
 ```bash
-nix develop github:logos-co/logos-evm-net-proxy --command cargo test
+nix build github:logos-co/logos-evm-net-proxy#default -L   # checkPhase = cargo test
 ```
 
-All six cases pass: every "proxy required but unhonorable" configuration
-refuses, and only a missing-and-not-required proxy or a valid
-`socks5h://` proxy yields a client. That is the guarantee every wallet
-module inherits by building its outbound client through this one crate.
+A successful build is a green run: `checkPhase` executes `cargo test`, so
+all six cases above passed — every "proxy required but unhonorable"
+configuration refused, and only a missing-and-not-required proxy or a
+valid `socks5h://` proxy yielded a client. The `-L` flag streams that
+output (`running 6 tests … test result: ok. 6 passed`) into the log
+above. That is the guarantee every wallet module inherits by building its
+outbound client through this one crate.
