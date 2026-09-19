@@ -36,8 +36,9 @@ own module RPC surface to the rest of the wallet.
 
 ```mermaid
 flowchart TD
-    UI["logos-evm-wallet-ui<br/>(universal C++ ui_qml app)"]
-    BE["wallet_backend_module<br/>(Rust coordinator + tx builder)"]
+    UI["logos-eth-wallet-ui / logos-uniswap-ui<br/>(universal C++ ui_qml apps)"]
+    BE["eth_wallet_backend / uniswap_backend<br/>(Rust app backends)"]
+    TX["tx_sender_module / fee_module / evm_assets_module<br/>(Rust cdylibs)"]
     KS["keystore_module<br/>(Rust cdylib)"]
     UNI["uniswap_module<br/>(Rust cdylib, concurrency:multi)"]
     ETH["eth_rpc_module<br/>(Rust cdylib, concurrency:multi)"]
@@ -48,9 +49,12 @@ flowchart TD
 
     UI -->|Logos RPC bridge| BE
     BE -->|Logos RPC| KS
+    BE -->|Logos RPC| TX
     BE -->|Logos RPC| ETH
     BE -->|Logos RPC| TOK
     BE -->|Logos RPC| UNI
+    TX -->|Logos RPC| KS
+    TX -->|Logos RPC| ETH
     UNI -->|Logos RPC| ETH
 
     ETH -.->|in-process: build_client| NP
